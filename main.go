@@ -1,24 +1,35 @@
 package main
 
 import (
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/go-chi/chi"
+	"github.com/leninhasda/gitpull-me/api"
 )
 
 func main() {
-	r := chi.NewRouter()
+	router := api.Router()
 
-	r.Get("/", indexHandler)
-	r.Post("/hook", pullHandler)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3009"
+	}
 
-	http.ListenAndServe(":3009", r)
-}
+	srvr := http.Server{
+		Addr:    ":" + port,
+		Handler: router,
+	}
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("welcome"))
-}
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGKILL, syscall.SIGINT, syscall.SIGQUIT)
 
-func pullHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("damn it!"))
+	go func() {
+		log.Println("Server started at:", port)
+		log.Fatal(srvr.ListenAndServe())
+	}()
+
+	<-stop
 }

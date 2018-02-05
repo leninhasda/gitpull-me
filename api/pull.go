@@ -1,47 +1,39 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
+	"io/ioutil"
 	"net/http"
-	"os"
+	"os/exec"
 )
 
-type payload struct {
-	Zen    string `json:"zen"`
-	HookID int64  `json:"hook_id"`
-	Hook   struct {
-		Config struct {
-			Secret string `json:"secret"`
-			URL    string `json:"url"`
-		} `json:"config"`
-	} `json:"hook"`
+func pullHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		shFile := "./secret-sh-file.sh"
+		_, stderr := shellExec("/bin/bash", shFile)
+		res := &response{200, stderr}
+		res.json(w)
+	}
+	return
 }
 
-func pullHandler(w http.ResponseWriter, r *http.Request) {
-	h := r.Header
+func shellExec(args ...string) (string, string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r)
+		}
+	}()
 
-	body := payload{}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		log.Println(err)
+	cmd := exec.Command(args[0], args[1:]...)
+
+	stderr, _ := cmd.StderrPipe()
+	stdout, _ := cmd.StdoutPipe()
+
+	if err := cmd.Start(); err != nil {
+		panic(err)
 	}
+	errStr, _ := ioutil.ReadAll(stderr)
+	outStr, _ := ioutil.ReadAll(stdout)
 
-	object := map[string]interface{}{
-		"header":  h,
-		"payload": body,
-	}
-	b, _ := json.Marshal(object)
-
-	f, err := os.OpenFile(fmt.Sprintf("%d", body.HookID), os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	n, _ := f.Write(b)
-
-	res := &response{200, n}
-	res.json(w)
-	return
+	return string(outStr), string(errStr)
 }

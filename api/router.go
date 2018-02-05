@@ -1,6 +1,8 @@
 package api
 
-import "github.com/go-chi/chi"
+import (
+	"github.com/go-chi/chi"
+)
 
 // Router returns a chi router mux
 func Router() *chi.Mux {
